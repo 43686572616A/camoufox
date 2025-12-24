@@ -2,24 +2,29 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-var EXPORTED_SYMBOLS = ["Juggler", "JugglerFactory"];
+import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
+import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
-const {AppConstants} = ChromeUtils.import("resource://gre/modules/AppConstants.jsm");
-const {XPCOMUtils} = ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
-const {ComponentUtils} = ChromeUtils.import("resource://gre/modules/ComponentUtils.jsm");
-const {Dispatcher} = ChromeUtils.import("chrome://juggler/content/protocol/Dispatcher.js");
-const {BrowserHandler} = ChromeUtils.import("chrome://juggler/content/protocol/BrowserHandler.js");
-const {NetworkObserver} = ChromeUtils.import("chrome://juggler/content/NetworkObserver.js");
-const {TargetRegistry} = ChromeUtils.import("chrome://juggler/content/TargetRegistry.js");
-const {Helper} = ChromeUtils.import('chrome://juggler/content/Helper.js');
-const {ActorManagerParent} = ChromeUtils.import('resource://gre/modules/ActorManagerParent.jsm');
+const lazy = {};
+
+ChromeUtils.defineESModuleGetters(lazy, {
+  ActorManagerParent: "resource://gre/modules/ActorManagerParent.sys.mjs",
+});
+
+// Import Juggler modules using ChromeUtils.importESModule for .sys.mjs or ChromeUtils.import for legacy .js
+const { Dispatcher } = ChromeUtils.import("chrome://juggler/content/protocol/Dispatcher.js");
+const { BrowserHandler } = ChromeUtils.import("chrome://juggler/content/protocol/BrowserHandler.js");
+const { NetworkObserver } = ChromeUtils.import("chrome://juggler/content/NetworkObserver.js");
+const { TargetRegistry } = ChromeUtils.import("chrome://juggler/content/TargetRegistry.js");
+const { Helper } = ChromeUtils.import('chrome://juggler/content/Helper.js');
+
 const helper = new Helper();
 
 const Cc = Components.classes;
 const Ci = Components.interfaces;
 
 // Register JSWindowActors that will be instantiated for each frame.
-ActorManagerParent.addJSWindowActors({
+lazy.ActorManagerParent.addJSWindowActors({
   JugglerFrame: {
     parent: {
       moduleURI: 'chrome://juggler/content/JugglerFrameParent.jsm',
@@ -160,7 +165,8 @@ class Juggler {
 const jugglerInstance = new Juggler();
 
 // This is used by the XPCOM codepath which expects a constructor
-var JugglerFactory = function() {
+export var JugglerFactory = function() {
   return jugglerInstance;
 };
 
+export { Juggler };

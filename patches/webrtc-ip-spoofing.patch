@@ -1,17 +1,17 @@
 diff --git a/dom/media/webrtc/jsapi/PeerConnectionImpl.cpp b/dom/media/webrtc/jsapi/PeerConnectionImpl.cpp
-index 235d5dde8f..d0102a6746 100644
+index ca23797..2b3680d 100644
 --- a/dom/media/webrtc/jsapi/PeerConnectionImpl.cpp
 +++ b/dom/media/webrtc/jsapi/PeerConnectionImpl.cpp
-@@ -116,6 +116,8 @@
- 
- #include "mozilla/dom/BrowserChild.h"
+@@ -99,6 +99,8 @@
+ #include "mozilla/glean/DomMediaWebrtcMetrics.h"
+ #include "mozilla/net/DataChannelProtocol.h"
  #include "mozilla/net/WebrtcProxyConfig.h"
 +#include "MaskConfig.hpp"
 +#include "mozilla/RustRegex.h"
- 
- #ifdef XP_WIN
- // We need to undef the MS macro again in case the windows include file
-@@ -1702,7 +1704,15 @@ PeerConnectionImpl::SetLocalDescription(int32_t aAction, const char* aSDP) {
+ #include "nsContentUtils.h"
+ #include "nsDOMJSUtils.h"
+ #include "nsGlobalWindowInner.h"
+@@ -1581,7 +1583,15 @@ PeerConnectionImpl::SetLocalDescription(int32_t aAction, const char* aSDP) {
      }
    };
  
@@ -28,7 +28,7 @@ index 235d5dde8f..d0102a6746 100644
  
    SyncToJsep();
  
-@@ -3224,12 +3234,22 @@ const std::string& PeerConnectionImpl::GetName() {
+@@ -3229,12 +3239,22 @@ const std::string& PeerConnectionImpl::GetName() {
    return mName;
  }
  
@@ -52,7 +52,7 @@ index 235d5dde8f..d0102a6746 100644
    if (mForceIceTcp && std::string::npos != candidate.find(" UDP ")) {
      CSFLogWarn(LOGTAG, "Blocking local UDP candidate: %s", candidate.c_str());
      STAMP_TIMECARD(mTimeCard, "UDP Ice Candidate blocked");
-@@ -3292,10 +3312,184 @@ void PeerConnectionImpl::SendLocalIceCandidateToContent(
+@@ -3297,10 +3317,184 @@ void PeerConnectionImpl::SendLocalIceCandidateToContent(
      uint16_t level, const std::string& mid, const std::string& candidate,
      const std::string& ufrag) {
    STAMP_TIMECARD(mTimeCard, "Send Ice Candidate to content");
@@ -90,29 +90,29 @@ index 235d5dde8f..d0102a6746 100644
 +
 +bool isSpecialIP(const std::string& ip) {
 +  // Check if an IP should not be masked (special addresses)
-+  return (ip == "0.0.0.0" || ip == "127.0.0.1" || 
-+          ip == "::" || ip == "::1" || 
-+          ip.compare(0, 8, "169.254.") == 0 || 
++  return (ip == "0.0.0.0" || ip == "127.0.0.1" ||
++          ip == "::" || ip == "::1" ||
++          ip.compare(0, 8, "169.254.") == 0 ||
 +          ip.compare(0, 4, "fe80") == 0);
 +}
 +
 +bool isPrivateIP(const std::string& ip) {
 +  // Check if an IP is on a private network
 +  bool isIPv6 = (ip.find(':') != std::string::npos);
-+  
++
 +  if (isIPv6) {
 +    // check for private ipv6 (fc00::/7)
-+    return (ip.length() >= 4 && 
-+            ((ip[0] == 'f' || ip[0] == 'F') && 
-+             (ip[1] == 'c' || ip[1] == 'd' || 
++    return (ip.length() >= 4 &&
++            ((ip[0] == 'f' || ip[0] == 'F') &&
++             (ip[1] == 'c' || ip[1] == 'd' ||
 +              ip[1] == 'C' || ip[1] == 'D')));
 +  } else {
 +    // check ipv4 private ranges (RFC1918)
-+    return (ip.compare(0, 8, "192.168.") == 0 || 
-+            ip.compare(0, 3, "10.") == 0 || 
-+            (ip.compare(0, 4, "172.") == 0 && 
-+             ip.length() >= 7 && 
-+             ip[4] >= '1' && ip[4] <= '3' && 
++    return (ip.compare(0, 8, "192.168.") == 0 ||
++            ip.compare(0, 3, "10.") == 0 ||
++            (ip.compare(0, 4, "172.") == 0 &&
++             ip.length() >= 7 &&
++             ip[4] >= '1' && ip[4] <= '3' &&
 +             (ip[5] >= '0' && ip[5] <= '9')));
 +  }
 +}
@@ -128,7 +128,7 @@ index 235d5dde8f..d0102a6746 100644
 +  auto ipv6Value = MaskConfig::GetString("webrtc:ipv6");
 +  auto localIpv4Value = MaskConfig::GetString("webrtc:localipv4");
 +  auto localIpv6Value = MaskConfig::GetString("webrtc:localipv6");
-+  
++
 +  if (isIPv6) {
 +    if (isPrivate && localIpv6Value) {
 +      return localIpv6Value.value();
@@ -153,25 +153,25 @@ index 235d5dde8f..d0102a6746 100644
 +  if (!regex.IsValid()) {
 +    return input;
 +  }
-+  
++
 +  std::string result;
 +  auto iter = regex.IterMatches(input);
 +  size_t lastEnd = 0;
-+  
++
 +  while (auto match = iter.Next()) {
 +    std::string ip = input.substr(match->start, match->end - match->start);
 +    std::string mask = getMaskForIP(ip);
-+    
++
 +    if (mask != ip) {
 +      result.append(input, lastEnd, match->start - lastEnd);
 +      result.append(mask);
 +    } else {
 +      result.append(input, lastEnd, match->end - lastEnd);
 +    }
-+    
++
 +    lastEnd = match->end;
 +  }
-+  
++
 +  result.append(input, lastEnd);
 +  return result;
 +}
@@ -187,7 +187,7 @@ index 235d5dde8f..d0102a6746 100644
 +  // ipv6
 +  const char* ipv6Pattern = "(?:[0-9A-Fa-f]{1,4}:){7}[0-9A-Fa-f]{1,4}";
 +  result = replaceIPAddresses(result, ipv6Pattern);
-+  
++
 +  return result;
 +}
 +
@@ -197,7 +197,7 @@ index 235d5dde8f..d0102a6746 100644
 +  auto ipv6Value = MaskConfig::GetString("webrtc:ipv6");
 +  auto localIpv4Value = MaskConfig::GetString("webrtc:localipv4");
 +  auto localIpv6Value = MaskConfig::GetString("webrtc:localipv6");
-+  
++
 +  if (!ipv4Value && !ipv6Value && !localIpv4Value && !localIpv6Value) {
 +    return NS_OK;
 +  }
@@ -225,31 +225,31 @@ index 235d5dde8f..d0102a6746 100644
 +  // process the entire SDP for any remaining IP addresses
 +  std::string processedSdp = oss.str();
 +  std::string originalSdp = processedSdp;
-+  
++
 +  // ipv4
 +  const char* ipv4Pattern = "(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)";
 +  processedSdp = replaceIPAddresses(processedSdp, ipv4Pattern);
 +  // ipv6
 +  const char* ipv6Pattern = "(?:[0-9A-Fa-f]{1,4}:){7}[0-9A-Fa-f]{1,4}";
 +  processedSdp = replaceIPAddresses(processedSdp, ipv6Pattern);
-+  
++
 +  if (processedSdp != originalSdp) {
 +    sdp = processedSdp;
 +  }
-+  
++
 +  return NS_OK;
  }
  
  void PeerConnectionImpl::IceConnectionStateChange(
-@@ -3625,11 +3819,27 @@ void PeerConnectionImpl::UpdateDefaultCandidate(
+@@ -3630,11 +3824,27 @@ void PeerConnectionImpl::UpdateDefaultCandidate(
      const std::string& defaultRtcpAddr, uint16_t defaultRtcpPort,
      const std::string& transportId) {
    CSFLogDebug(LOGTAG, "%s", __FUNCTION__);
-+  
++
 +  // sanitize the default candidate addresses if IP spoofing is enabled
 +  std::string sanitizedDefaultAddr = defaultAddr;
 +  std::string sanitizedDefaultRtcpAddr = defaultRtcpAddr;
-+  
++
 +  if (ShouldSpoofCandidateIP()) {
 +    // apply masking
 +    if (!defaultAddr.empty()) {
@@ -259,7 +259,7 @@ index 235d5dde8f..d0102a6746 100644
 +      sanitizedDefaultRtcpAddr = SpoofCandidateIP(defaultRtcpAddr);
 +    }
 +  }
-+  
++
 +  // use the sanitized addresses
    mJsepSession->UpdateDefaultCandidate(
 -      defaultAddr, defaultPort, defaultRtcpAddr, defaultRtcpPort, transportId);
@@ -271,7 +271,7 @@ index 235d5dde8f..d0102a6746 100644
          transportId);
    }
  }
-@@ -4399,8 +4609,10 @@ bool PeerConnectionImpl::GetPrefDefaultAddressOnly() const {
+@@ -4405,8 +4615,10 @@ bool PeerConnectionImpl::GetPrefDefaultAddressOnly() const {
  
    uint64_t winId = mWindow->WindowID();
  
@@ -285,10 +285,10 @@ index 235d5dde8f..d0102a6746 100644
        !MediaManager::Get()->IsActivelyCapturingOrHasAPermission(winId);
    return default_address_only;
 diff --git a/dom/media/webrtc/jsapi/PeerConnectionImpl.h b/dom/media/webrtc/jsapi/PeerConnectionImpl.h
-index 138cc07bd9..91cc12f87e 100644
+index 25fc44d..7902015 100644
 --- a/dom/media/webrtc/jsapi/PeerConnectionImpl.h
 +++ b/dom/media/webrtc/jsapi/PeerConnectionImpl.h
-@@ -621,8 +621,12 @@ class PeerConnectionImpl final
+@@ -622,8 +622,12 @@ class PeerConnectionImpl final
    RefPtr<MediaPipeline> GetMediaPipelineForTrack(
        dom::MediaStreamTrack& aRecvTrack);
  
@@ -303,14 +303,13 @@ index 138cc07bd9..91cc12f87e 100644
                                        const std::string& candidate,
                                        const std::string& ufrag);
 diff --git a/dom/media/webrtc/jsapi/moz.build b/dom/media/webrtc/jsapi/moz.build
-index 925190505a..878853f0f0 100644
+index 62bb6ee..9097b7a 100644
 --- a/dom/media/webrtc/jsapi/moz.build
 +++ b/dom/media/webrtc/jsapi/moz.build
-@@ -62,3 +62,6 @@ EXPORTS.mozilla.dom += [
+@@ -68,3 +68,6 @@ EXPORTS.mozilla.dom += [
  ]
  
  FINAL_LIBRARY = "xul"
 +
 +# DOM Mask
 +LOCAL_INCLUDES += ["/camoucfg"]
-\ No newline at end of file

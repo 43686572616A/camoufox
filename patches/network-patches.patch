@@ -4,12 +4,11 @@ index b090a56d88..9fe4a5e1e8 100644
 +++ b/netwerk/protocol/http/moz.build
 @@ -218,3 +218,6 @@ XPCOM_MANIFESTS += [
  ]
- 
+
  include("/tools/fuzzing/libfuzzer-config.mozbuild")
 +
 +# DOM Mask
 +LOCAL_INCLUDES += ["/camoucfg"]
-\ No newline at end of file
 diff --git a/netwerk/protocol/http/nsHttpHandler.cpp b/netwerk/protocol/http/nsHttpHandler.cpp
 index d0aebdf965..01472ec205 100644
 --- a/netwerk/protocol/http/nsHttpHandler.cpp
@@ -24,7 +23,7 @@ index d0aebdf965..01472ec205 100644
  #include "nsHttpAuthCache.h"
 @@ -747,6 +748,15 @@ uint8_t nsHttpHandler::UrgencyFromCoSFlags(uint32_t cos) {
  //-----------------------------------------------------------------------------
- 
+
  const nsCString& nsHttpHandler::UserAgent(bool aShouldResistFingerprinting) {
 +  if (auto value = MaskConfig::GetString("headers.User-Agent")) {
 +    mUserAgent.Assign(nsCString(value.value().c_str()));
@@ -40,23 +39,23 @@ index d0aebdf965..01472ec205 100644
      return mSpoofedUserAgent;
 @@ -1834,6 +1844,10 @@ nsresult nsHttpHandler::SetAcceptLanguages() {
    }
- 
+
    MOZ_ASSERT(NS_IsMainThread());
 +  if (auto value = MaskConfig::GetString("headers.Accept-Language")) {
 +    mAcceptLanguages.Assign(nsCString(value.value().c_str()));
 +    return NS_OK;
 +  }
- 
+
    mAcceptLanguagesIsDirty = false;
- 
-@@ -1850,6 +1864,10 @@ nsresult nsHttpHandler::SetAcceptLanguages() {
- 
+
+@@ -2099,6 +2113,10 @@ nsresult nsHttpHandler::SetAcceptLanguages() {
+
  nsresult nsHttpHandler::SetAcceptEncodings(const char* aAcceptEncodings,
-                                            bool isSecure) {
+                                            bool isSecure, bool isDictionary) {
 +  if (auto value = MaskConfig::GetString("headers.Accept-Encoding")) {
 +    mHttpsAcceptEncodings.Assign(nsCString(value.value().c_str()));
 +    return NS_OK;
 +  }
-   if (isSecure) {
-     mHttpsAcceptEncodings = aAcceptEncodings;
-   } else {
+   if (isDictionary) {
+     mDictionaryAcceptEncodings = aAcceptEncodings;
+   } else if (isSecure) {

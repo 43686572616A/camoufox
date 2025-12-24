@@ -4,10 +4,10 @@
 
 # there is a possible patch to consider when changing this:
 # see: patches/browser-confvars.patch
+# Note: MOZ_APP_VENDOR is now set via browser/moz.configure (see vendor-branding.patch)
 
 MOZ_APP_NAME=camoufox
 MOZ_APP_BASENAME=Camoufox
 MOZ_APP_PROFILE=camoufox
-MOZ_APP_VENDOR=Camoufox
 MOZ_APP_DISPLAYNAME=Camoufox
 MOZ_APP_REMOTINGNAME=camoufox
